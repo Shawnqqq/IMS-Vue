@@ -16,8 +16,11 @@
       <div class="article-input content-editor">
         <p class="sort-input-title">内容</p>
         <div class='editor1' id="editor">
-          <ckeditor  :editor="editor" v-model="editorText">
-          </ckeditor>
+          <quill-editor
+            class="quill-editor"
+            v-model="article.content"
+            :options="editorOption">
+          </quill-editor>
         </div>
       </div>
     </form>
@@ -29,23 +32,108 @@
 import sortService from "@/global/service/sort";
 import articleService from "@/global/service/article";
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+import axios from "axios";
+import 'quill/dist/quill.core.css'
+import 'quill/dist/quill.snow.css'
+import 'quill/dist/quill.bubble.css'
+import { quillEditor } from 'vue-quill-editor'
+const toolbarOptions = [
+  ['bold', 'italic', 'underline', 'strike'],
+  ['blockquote', 'code-block'],
+  [{'header': 1}, {'header': 2}],
+  [{'list': 'ordered'}, {'list': 'bullet'}],
+  [{'script': 'sub'}, {'script': 'super'}],
+  [{'indent': '-1'}, {'indent': '+1'}],
+  [{'direction': 'rtl'}],
+  [{'size': ['small', false, 'large', 'huge']}],
+  [{'header': [1, 2, 3, 4, 5, 6, false]}],
+  [{'color': []}, {'background': []}],
+  [{'font': []}],
+  [{'align': []}],
+  ['clean'],
+  ['link', 'image', 'video']
+]
+const uploadConfig = {
+  name: 'image_url',
+  size: 500,  // 图片大小，单位为Kb, 1M = 1024Kb
+  accept: 'image/png, image/gif, image/jpeg',// 可选 可上传的图片格式
+  TOKEN_API:'https://www.jevescript.com/api/qiniu-uploadtoken',
+  QINIU_API: 'http://upload-z2.qiniup.com',
+}
+const handlers ={
+  image: function(value) {
+    var self = this;
+
+    let fileInput = document.createElement('input');
+    fileInput.setAttribute('type', 'file');
+    fileInput.setAttribute('accept', uploadConfig.accept);
+    fileInput.classList.add('ql-image');
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      if (uploadConfig.size 
+        && file.size >= uploadConfig.size * 1024) {
+        fileInput.value = '';
+        return
+      }
+
+      let domain;
+      const key = 'test/' + Date.now() + '_' + file.name;
+      console.log(key)
+      // 获取 TOKEN
+      axios.get(uploadConfig.TOKEN_API)
+        .then( res => {
+          console.log(res)
+          domain = res.domain;
+          let token = res.token;
+          let formData = new FormData();
+          formData.append('file', file);   // 文件
+          formData.append('key', key);     // 在七牛存储中的路径
+          formData.append('token', token); // token
+          // 上传图片
+          return axios.post(uploadConfig.QINIU_API, formData, {
+            headers: {
+              'Content-Type': 'multiple/form-data'
+            }
+          })
+        })
+        .then( res => {
+          let image_url = domain +'/' + res.key;
+          let length = this.quill.getSelection(true).index;
+          this.quill.insertEmbed(length, 'image', image_url)
+          this.quill.setSelection(length + 1);
+        })
+    })
+    fileInput.click();
+  }
+}
 
 export default {
-  name:'editor',
   data(){
     return{
       select:'1',
       selectValue:[],
       value:{name:''},
-      editor:ClassicEditor,
-      editorText:'',
-      nameRule:false
+      nameRule:false,
+      article:{
+        content:''
+      },
+      editorOption:{
+        modules:{
+          toolbar:{
+            container:toolbarOptions,
+            handlers: handlers,
+          }
+        }
+      }
     }
   },
   created(){
     sortService.list().then(res=>{
       this.selectValue = res.data
     })
+  },
+  components:{
+    'quill-editor': quillEditor
   },
   methods:{
     handleCreate(){
@@ -61,7 +149,7 @@ export default {
         let params = {
           title:this.value.name,
           sort_id:this.select,
-          text:this.editorText
+          text:this.article.content
         }
         articleService.insert(params).then(res =>{
           if(res.code === 200){

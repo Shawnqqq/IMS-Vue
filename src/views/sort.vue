@@ -14,9 +14,6 @@
         <a-button type="danger" @click="handleDelete(item.id,index)" icon="close"></a-button>
       </li>
     </ul> 
-    <a-table :columns="columns" :dataSource="data">
-
-    </a-table>
   </div>
 </template> 
 
@@ -26,10 +23,7 @@ import sortService from "@/global/service/sort";
 export default {
   data(){
     return{
-      sortData:[],
-      columns:[
-        {dataIndex:'name'}
-        ]
+      sortData:[]
     }
   },
   created(){

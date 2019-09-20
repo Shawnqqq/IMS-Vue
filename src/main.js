@@ -2,6 +2,7 @@ import Vue from 'vue'
 import App from './App.vue'
 import CKEditor from '@ckeditor/ckeditor5-vue';
 
+
 import router from './router/index';
 import store from './store';
 
